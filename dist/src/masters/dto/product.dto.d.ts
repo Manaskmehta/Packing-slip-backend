@@ -6,6 +6,8 @@ export declare class CreateProductDto {
     businessLine?: string;
     hsnCode?: string;
     uom?: string;
+    defaultBundleQty?: number;
+    defaultNoOfBundles?: number;
     isActive?: boolean;
 }
 export declare class UpdateProductDto extends CreateProductDto {

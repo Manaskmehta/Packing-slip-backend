@@ -21,17 +21,14 @@ let StockService = class StockService {
         const inwardRaw = await this.prisma.inwardEntry.groupBy({
             by: ['productId'],
             where: { deletedAt: null },
-            _sum: { inwardQty: true, kg: true },
+            _sum: { inwardQty: true },
         });
         const outwardRaw = await this.prisma.packingSlipItem.groupBy({
             by: ['productId'],
             where: { deletedAt: null },
-            _sum: { qty: true, kg: true },
+            _sum: { qty: true },
         });
-        const outwardMap = new Map(outwardRaw.map((o) => [
-            o.productId,
-            { qty: o._sum.qty || 0, kg: o._sum.kg || 0 },
-        ]));
+        const outwardMap = new Map(outwardRaw.map((o) => [o.productId, o._sum.qty || 0]));
         const productIds = inwardRaw.map((r) => r.productId).filter((id) => id !== null);
         const products = await this.prisma.product.findMany({
             where: { id: { in: productIds } },
@@ -40,16 +37,14 @@ let StockService = class StockService {
         const productMap = new Map(products.map((p) => [p.id, p]));
         let stock = inwardRaw.map((i) => {
             const prod = i.productId !== null ? productMap.get(i.productId) : undefined;
-            const out = i.productId !== null ? (outwardMap.get(i.productId) || { qty: 0, kg: 0 }) : { qty: 0, kg: 0 };
+            const outQty = i.productId !== null ? (outwardMap.get(i.productId) ?? 0) : 0;
+            const inQty = i._sum?.inwardQty || 0;
             return {
                 productCode: prod?.productCode || '',
                 productName: prod?.productName || '',
-                totalInward: i._sum?.inwardQty || 0,
-                totalOutward: out.qty,
-                available: (i._sum?.inwardQty || 0) - out.qty,
-                totalKgInward: i._sum?.kg || 0,
-                totalKgOutward: out.kg,
-                availableKg: (i._sum?.kg || 0) - out.kg,
+                totalInward: inQty,
+                totalOutward: outQty,
+                available: inQty - outQty,
             };
         });
         if (search) {

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePartyDto, UpdatePartyDto } from './dto/party.dto';
@@ -156,16 +157,44 @@ export class MastersService {
 
   // ─── Product ─────────────────────────────────────────────────────────────────
 
-  async findAllProducts(search?: string, activeOnly = false, page = 1, limit = 50) {
+  /** Non-empty specifications must be unique among active products (case-insensitive, trim). */
+  async assertSpecificationUnique(spec: string | null | undefined, excludeProductId?: number) {
+    const trimmed = (spec ?? '').trim();
+    if (!trimmed) return;
+
+    const rows = await this.prisma.$queryRaw<{ id: number }[]>`
+      SELECT id FROM "Product"
+      WHERE "deletedAt" IS NULL
+        AND "specification" IS NOT NULL
+        AND TRIM("specification") <> ''
+        AND LOWER(TRIM("specification")) = LOWER(${trimmed})
+        ${excludeProductId != null ? Prisma.sql`AND id <> ${excludeProductId}` : Prisma.empty}
+      LIMIT 1
+    `;
+    if (rows.length > 0) {
+      throw new ConflictException('This specification is already assigned to another item in the master');
+    }
+  }
+
+  async findAllProducts(
+    search?: string,
+    activeOnly = false,
+    page = 1,
+    limit = 50,
+    allowedIds?: number[],
+  ) {
     const where = {
       deletedAt: null,
-      ...(activeOnly ? { isActive: true } : {}),
+      // Inward-linked SKUs must be selectable even if marked inactive
+      ...(activeOnly && !allowedIds?.length ? { isActive: true } : {}),
+      ...(allowedIds?.length ? { id: { in: allowedIds } } : {}),
       ...(search
         ? {
             OR: [
               { productCode: { contains: search, mode: 'insensitive' as const } },
               { productName: { contains: search, mode: 'insensitive' as const } },
               { businessLine: { contains: search, mode: 'insensitive' as const } },
+              { specification: { contains: search, mode: 'insensitive' as const } },
             ],
           }
         : {}),
@@ -187,11 +216,13 @@ export class MastersService {
   async createProduct(dto: CreateProductDto) {
     const exists = await this.prisma.product.findUnique({ where: { productCode: dto.productCode } });
     if (exists) throw new ConflictException(`Product code '${dto.productCode}' already exists`);
+    await this.assertSpecificationUnique(dto.specification);
     return this.prisma.product.create({ data: dto });
   }
 
   async updateProduct(id: number, dto: UpdateProductDto) {
     await this.findOneProduct(id);
+    await this.assertSpecificationUnique(dto.specification, id);
     return this.prisma.product.update({ where: { id }, data: dto });
   }
 
@@ -217,8 +248,18 @@ export class MastersService {
   }
 
   generateProductTemplate(): Buffer {
-    const headers = ['Product Code', 'Product Name', 'Specification', 'Business Line', 'HSN Code', 'UOM', 'Description'];
-    const example = ['PROD-001', 'Aluminium Pipe 2 inch', '2 inch dia', 'Aluminium', '7608', 'PCS', 'Optional description'];
+    const headers = [
+      'Product Code',
+      'Product Name',
+      'Specification',
+      'Business Line',
+      'HSN Code',
+      'UOM',
+      'Qty per Bundle',
+      'No. of Bundles (default)',
+      'Description',
+    ];
+    const example = ['PROD-001', 'Aluminium Pipe 2 inch', '2 inch dia', 'Aluminium', '7608', 'PCS', 10, 5, 'Optional description'];
     const ws = XLSX.utils.aoa_to_sheet([headers, example]);
     ws['!cols'] = headers.map((_, i) => ({ wch: i === 1 ? 30 : 18 }));
     const wb = XLSX.utils.book_new();
@@ -250,7 +291,18 @@ export class MastersService {
 
       const existing = await this.prisma.product.findUnique({ where: { productCode } });
 
+      const specVal = row['Specification'] ? String(row['Specification']) : undefined;
+
+      const parseOptInt = (v: unknown): number | undefined => {
+        if (v === undefined || v === null || v === '') return undefined;
+        const n = Number(v);
+        return Number.isFinite(n) && n >= 0 ? Math.trunc(n) : undefined;
+      };
+      const bundleQty = parseOptInt(row['Qty per Bundle'] ?? row['qtyPerBundle'] ?? row['defaultBundleQty']);
+      const bundleN = parseOptInt(row['No. of Bundles (default)'] ?? row['defaultNoOfBundles'] ?? row['No. of Bundles']);
+
       if (existing) {
+        await this.assertSpecificationUnique(specVal ?? existing.specification, existing.id);
         await this.prisma.product.update({
           where: { productCode },
           data: {
@@ -260,19 +312,24 @@ export class MastersService {
             ...(row['HSN Code'] ? { hsnCode: String(row['HSN Code']) } : {}),
             ...(row['UOM'] ? { uom: String(row['UOM']) } : {}),
             ...(row['Description'] ? { description: String(row['Description']) } : {}),
+            ...(bundleQty !== undefined ? { defaultBundleQty: bundleQty } : {}),
+            ...(bundleN !== undefined ? { defaultNoOfBundles: bundleN } : {}),
           },
         });
         updated++;
       } else {
+        await this.assertSpecificationUnique(specVal);
         await this.prisma.product.create({
           data: {
             productCode,
             productName,
-            specification: row['Specification'] ? String(row['Specification']) : undefined,
+            specification: specVal,
             businessLine: row['Business Line'] ? String(row['Business Line']) : undefined,
             hsnCode: row['HSN Code'] ? String(row['HSN Code']) : undefined,
             uom: row['UOM'] ? String(row['UOM']) : 'PCS',
             description: row['Description'] ? String(row['Description']) : undefined,
+            defaultBundleQty: bundleQty,
+            defaultNoOfBundles: bundleN,
           },
         });
         imported++;

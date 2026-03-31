@@ -7,6 +7,13 @@ export declare class PackingSlipController {
         search?: string;
         page?: string;
         limit?: string;
+        sortBy?: string;
+        sortDir?: string;
+        partyId?: string;
+        projectId?: string;
+        productId?: string;
+        year?: string;
+        isLocked?: string;
     }): Promise<{
         data: ({
             party: {
@@ -28,42 +35,42 @@ export declare class PackingSlipController {
             } | null;
             items: {
                 id: number;
-                product: {
-                    id: number;
-                    productName: string;
-                    productCode: string;
-                };
-                kg: number | null;
+                slipWeight: number | null;
+                finalBillableWeight: number | null;
+                packagingWeightPerPc: number | null;
+                packagingQty: number | null;
                 dcLink: string | null;
                 specification: string | null;
                 businessLine: string | null;
                 qty: number;
+                kg: number | null;
                 bundleQty: number | null;
                 noOfBundles: number | null;
-                packagingWeightPerPc: number | null;
-                packagingQty: number | null;
-                slipWeight: number | null;
-                finalBillableWeight: number | null;
+                product: {
+                    id: number;
+                    productCode: string;
+                    productName: string;
+                };
             }[];
         } & {
             id: number;
-            createdAt: Date;
-            deletedAt: Date | null;
+            slipNo: string;
             date: Date;
             partyId: number;
             projectId: number | null;
             poId: number | null;
-            remarks: string | null;
             createdById: number | null;
-            updatedAt: Date;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
+            remarks: string | null;
+            vehicleNo: string | null;
             slipWeight: number | null;
             finalBillableWeight: number | null;
-            vehicleNo: string | null;
-            slipNo: string;
+            packagingWeightPerPc: number | null;
+            packagingQty: number | null;
             isLocked: boolean;
             printedAt: Date | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
         })[];
         total: number;
         page: number;
@@ -86,72 +93,72 @@ export declare class PackingSlipController {
             poNumber: string;
         } | null;
         createdBy: {
-            email: string;
             name: string;
+            email: string;
         } | null;
         items: ({
             product: {
                 id: number;
                 specification: string | null;
                 businessLine: string | null;
-                productName: string;
                 productCode: string;
+                productName: string;
                 hsnCode: string | null;
             };
         } & {
             id: number;
+            slipWeight: number | null;
+            finalBillableWeight: number | null;
+            packagingWeightPerPc: number | null;
+            packagingQty: number | null;
             createdAt: Date;
             deletedAt: Date | null;
+            packingSlipId: number;
             productId: number;
-            kg: number | null;
             dcLink: string | null;
             specification: string | null;
             businessLine: string | null;
             qty: number;
+            kg: number | null;
             bundleQty: number | null;
             noOfBundles: number | null;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
-            slipWeight: number | null;
-            finalBillableWeight: number | null;
-            packingSlipId: number;
         })[];
         productSummaries: ({
             product: {
                 id: number;
-                productName: string;
                 productCode: string;
+                productName: string;
             };
         } & {
             id: number;
-            createdAt: Date;
-            productId: number;
-            updatedAt: Date;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
             slipWeight: number | null;
             finalBillableWeight: number | null;
+            packagingWeightPerPc: number | null;
+            packagingQty: number | null;
+            createdAt: Date;
+            updatedAt: Date;
             packingSlipId: number;
+            productId: number;
         })[];
     } & {
         id: number;
-        createdAt: Date;
-        deletedAt: Date | null;
+        slipNo: string;
         date: Date;
         partyId: number;
         projectId: number | null;
         poId: number | null;
-        remarks: string | null;
         createdById: number | null;
-        updatedAt: Date;
-        packagingWeightPerPc: number | null;
-        packagingQty: number | null;
+        remarks: string | null;
+        vehicleNo: string | null;
         slipWeight: number | null;
         finalBillableWeight: number | null;
-        vehicleNo: string | null;
-        slipNo: string;
+        packagingWeightPerPc: number | null;
+        packagingQty: number | null;
         isLocked: boolean;
         printedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
     }>;
     create(dto: CreatePackingSlipDto, req: any): Promise<{
         party: {
@@ -167,58 +174,58 @@ export declare class PackingSlipController {
                 id: number;
                 specification: string | null;
                 businessLine: string | null;
-                productName: string;
                 productCode: string;
+                productName: string;
                 hsnCode: string | null;
             };
         } & {
             id: number;
+            slipWeight: number | null;
+            finalBillableWeight: number | null;
+            packagingWeightPerPc: number | null;
+            packagingQty: number | null;
             createdAt: Date;
             deletedAt: Date | null;
+            packingSlipId: number;
             productId: number;
-            kg: number | null;
             dcLink: string | null;
             specification: string | null;
             businessLine: string | null;
             qty: number;
+            kg: number | null;
             bundleQty: number | null;
             noOfBundles: number | null;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
-            slipWeight: number | null;
-            finalBillableWeight: number | null;
-            packingSlipId: number;
         })[];
         productSummaries: {
             id: number;
-            createdAt: Date;
-            productId: number;
-            updatedAt: Date;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
             slipWeight: number | null;
             finalBillableWeight: number | null;
+            packagingWeightPerPc: number | null;
+            packagingQty: number | null;
+            createdAt: Date;
+            updatedAt: Date;
             packingSlipId: number;
+            productId: number;
         }[];
     } & {
         id: number;
-        createdAt: Date;
-        deletedAt: Date | null;
+        slipNo: string;
         date: Date;
         partyId: number;
         projectId: number | null;
         poId: number | null;
-        remarks: string | null;
         createdById: number | null;
-        updatedAt: Date;
-        packagingWeightPerPc: number | null;
-        packagingQty: number | null;
+        remarks: string | null;
+        vehicleNo: string | null;
         slipWeight: number | null;
         finalBillableWeight: number | null;
-        vehicleNo: string | null;
-        slipNo: string;
+        packagingWeightPerPc: number | null;
+        packagingQty: number | null;
         isLocked: boolean;
         printedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
     }>;
     lock(id: number): Promise<{
         party: {
@@ -237,158 +244,92 @@ export declare class PackingSlipController {
             poNumber: string;
         } | null;
         createdBy: {
-            email: string;
             name: string;
+            email: string;
         } | null;
         items: ({
             product: {
                 id: number;
                 specification: string | null;
                 businessLine: string | null;
-                productName: string;
                 productCode: string;
+                productName: string;
                 hsnCode: string | null;
             };
         } & {
             id: number;
+            slipWeight: number | null;
+            finalBillableWeight: number | null;
+            packagingWeightPerPc: number | null;
+            packagingQty: number | null;
             createdAt: Date;
             deletedAt: Date | null;
+            packingSlipId: number;
             productId: number;
-            kg: number | null;
             dcLink: string | null;
             specification: string | null;
             businessLine: string | null;
             qty: number;
+            kg: number | null;
             bundleQty: number | null;
             noOfBundles: number | null;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
-            slipWeight: number | null;
-            finalBillableWeight: number | null;
-            packingSlipId: number;
         })[];
         productSummaries: ({
             product: {
                 id: number;
-                productName: string;
                 productCode: string;
+                productName: string;
             };
         } & {
             id: number;
-            createdAt: Date;
-            productId: number;
-            updatedAt: Date;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
             slipWeight: number | null;
             finalBillableWeight: number | null;
+            packagingWeightPerPc: number | null;
+            packagingQty: number | null;
+            createdAt: Date;
+            updatedAt: Date;
             packingSlipId: number;
+            productId: number;
         })[];
     } & {
         id: number;
-        createdAt: Date;
-        deletedAt: Date | null;
+        slipNo: string;
         date: Date;
         partyId: number;
         projectId: number | null;
         poId: number | null;
-        remarks: string | null;
         createdById: number | null;
-        updatedAt: Date;
-        packagingWeightPerPc: number | null;
-        packagingQty: number | null;
+        remarks: string | null;
+        vehicleNo: string | null;
         slipWeight: number | null;
         finalBillableWeight: number | null;
-        vehicleNo: string | null;
-        slipNo: string;
+        packagingWeightPerPc: number | null;
+        packagingQty: number | null;
         isLocked: boolean;
         printedAt: Date | null;
-    }>;
-    update(id: number, dto: CreatePackingSlipDto): Promise<{
-        party: {
-            id: number;
-            name: string;
-        };
-        project: {
-            id: number;
-            name: string;
-        } | null;
-        items: ({
-            product: {
-                id: number;
-                specification: string | null;
-                businessLine: string | null;
-                productName: string;
-                productCode: string;
-                hsnCode: string | null;
-            };
-        } & {
-            id: number;
-            createdAt: Date;
-            deletedAt: Date | null;
-            productId: number;
-            kg: number | null;
-            dcLink: string | null;
-            specification: string | null;
-            businessLine: string | null;
-            qty: number;
-            bundleQty: number | null;
-            noOfBundles: number | null;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
-            slipWeight: number | null;
-            finalBillableWeight: number | null;
-            packingSlipId: number;
-        })[];
-        productSummaries: {
-            id: number;
-            createdAt: Date;
-            productId: number;
-            updatedAt: Date;
-            packagingWeightPerPc: number | null;
-            packagingQty: number | null;
-            slipWeight: number | null;
-            finalBillableWeight: number | null;
-            packingSlipId: number;
-        }[];
-    } & {
-        id: number;
         createdAt: Date;
-        deletedAt: Date | null;
-        date: Date;
-        partyId: number;
-        projectId: number | null;
-        poId: number | null;
-        remarks: string | null;
-        createdById: number | null;
         updatedAt: Date;
-        packagingWeightPerPc: number | null;
-        packagingQty: number | null;
-        slipWeight: number | null;
-        finalBillableWeight: number | null;
-        vehicleNo: string | null;
-        slipNo: string;
-        isLocked: boolean;
-        printedAt: Date | null;
+        deletedAt: Date | null;
     }>;
+    update(id: number, dto: CreatePackingSlipDto): Promise<void>;
     remove(id: number): Promise<{
         id: number;
-        createdAt: Date;
-        deletedAt: Date | null;
+        slipNo: string;
         date: Date;
         partyId: number;
         projectId: number | null;
         poId: number | null;
-        remarks: string | null;
         createdById: number | null;
-        updatedAt: Date;
-        packagingWeightPerPc: number | null;
-        packagingQty: number | null;
+        remarks: string | null;
+        vehicleNo: string | null;
         slipWeight: number | null;
         finalBillableWeight: number | null;
-        vehicleNo: string | null;
-        slipNo: string;
+        packagingWeightPerPc: number | null;
+        packagingQty: number | null;
         isLocked: boolean;
         printedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
     }>;
 }

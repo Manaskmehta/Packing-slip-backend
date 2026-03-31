@@ -67,6 +67,7 @@ let AuthService = class AuthService {
     }
     async login(dto) {
         const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        console.log(user, "sssssxxsx");
         if (!user)
             throw new common_1.UnauthorizedException('Invalid credentials');
         const valid = await bcrypt.compare(dto.password, user.passwordHash);

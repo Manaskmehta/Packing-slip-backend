@@ -8,26 +8,33 @@ export declare class InwardController {
         search?: string;
         page?: string;
         limit?: string;
+        sortBy?: string;
+        sortDir?: string;
+        partyId?: string;
+        projectId?: string;
+        productId?: string;
+        poId?: string;
+        year?: string;
     }): Promise<{
         data: {
             remainingPcs: number;
             party: {
                 id: number;
-                name: string;
                 code: string | null;
+                name: string;
             };
-            project: {
-                id: number;
-                name: string;
-                code: string | null;
-            } | null;
             product: {
                 id: number;
                 specification: string | null;
                 businessLine: string | null;
-                productName: string;
                 productCode: string;
+                productName: string;
             };
+            project: {
+                id: number;
+                code: string | null;
+                name: string;
+            } | null;
             poRef: {
                 id: number;
                 poNumber: string;
@@ -36,25 +43,25 @@ export declare class InwardController {
                 name: string;
             } | null;
             id: number;
-            createdAt: Date;
-            deletedAt: Date | null;
-            year: string | null;
+            srNo: number;
             date: Date;
             challan: string;
             partyId: number;
             productId: number;
-            inwardQty: number;
             projectId: number | null;
             poId: number | null;
+            createdById: number | null;
+            inwardQty: number;
             kg: number | null;
+            specification: string | null;
+            businessLine: string | null;
             challanDays: number | null;
             dcLink: string | null;
-            specification: string | null;
             remarks: string | null;
-            businessLine: string | null;
-            srNo: number;
-            createdById: number | null;
+            year: string | null;
+            createdAt: Date;
             updatedAt: Date;
+            deletedAt: Date | null;
         }[];
         total: number;
         page: number;
@@ -74,6 +81,8 @@ export declare class InwardController {
         productName: string;
         specification: string | null;
         businessLine: string | null;
+        defaultBundleQty: number | null;
+        defaultNoOfBundles: number | null;
         inwardQty: number;
         outwardQty: number;
         remainingQty: number;
@@ -81,21 +90,21 @@ export declare class InwardController {
     findOne(id: number): Promise<{
         party: {
             id: number;
-            name: string;
             code: string | null;
+            name: string;
         };
-        project: {
-            id: number;
-            name: string;
-            code: string | null;
-        } | null;
         product: {
             id: number;
             specification: string | null;
             businessLine: string | null;
-            productName: string;
             productCode: string;
+            productName: string;
         };
+        project: {
+            id: number;
+            code: string | null;
+            name: string;
+        } | null;
         poRef: {
             id: number;
             poNumber: string;
@@ -105,44 +114,44 @@ export declare class InwardController {
         } | null;
     } & {
         id: number;
-        createdAt: Date;
-        deletedAt: Date | null;
-        year: string | null;
+        srNo: number;
         date: Date;
         challan: string;
         partyId: number;
         productId: number;
-        inwardQty: number;
         projectId: number | null;
         poId: number | null;
+        createdById: number | null;
+        inwardQty: number;
         kg: number | null;
+        specification: string | null;
+        businessLine: string | null;
         challanDays: number | null;
         dcLink: string | null;
-        specification: string | null;
         remarks: string | null;
-        businessLine: string | null;
-        srNo: number;
-        createdById: number | null;
+        year: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        deletedAt: Date | null;
     }>;
     create(dto: CreateInwardDto, req: any): Promise<{
         party: {
             id: number;
-            name: string;
             code: string | null;
+            name: string;
         };
-        project: {
-            id: number;
-            name: string;
-            code: string | null;
-        } | null;
         product: {
             id: number;
             specification: string | null;
             businessLine: string | null;
-            productName: string;
             productCode: string;
+            productName: string;
         };
+        project: {
+            id: number;
+            code: string | null;
+            name: string;
+        } | null;
         poRef: {
             id: number;
             poNumber: string;
@@ -152,94 +161,52 @@ export declare class InwardController {
         } | null;
     } & {
         id: number;
-        createdAt: Date;
-        deletedAt: Date | null;
-        year: string | null;
+        srNo: number;
         date: Date;
         challan: string;
         partyId: number;
         productId: number;
-        inwardQty: number;
         projectId: number | null;
         poId: number | null;
+        createdById: number | null;
+        inwardQty: number;
         kg: number | null;
+        specification: string | null;
+        businessLine: string | null;
         challanDays: number | null;
         dcLink: string | null;
-        specification: string | null;
         remarks: string | null;
-        businessLine: string | null;
-        srNo: number;
-        createdById: number | null;
+        year: string | null;
+        createdAt: Date;
         updatedAt: Date;
+        deletedAt: Date | null;
     }>;
-    update(id: number, dto: UpdateInwardDto): Promise<{
-        party: {
-            id: number;
-            name: string;
-            code: string | null;
+    update(id: number, dto: UpdateInwardDto): Promise<void>;
+    remove(id: number, req: {
+        user: {
+            role: string;
         };
-        project: {
-            id: number;
-            name: string;
-            code: string | null;
-        } | null;
-        product: {
-            id: number;
-            specification: string | null;
-            businessLine: string | null;
-            productName: string;
-            productCode: string;
-        };
-        poRef: {
-            id: number;
-            poNumber: string;
-        } | null;
-        createdBy: {
-            name: string;
-        } | null;
-    } & {
+    }): Promise<{
         id: number;
-        createdAt: Date;
-        deletedAt: Date | null;
-        year: string | null;
+        srNo: number;
         date: Date;
         challan: string;
         partyId: number;
         productId: number;
-        inwardQty: number;
         projectId: number | null;
         poId: number | null;
+        createdById: number | null;
+        inwardQty: number;
         kg: number | null;
+        specification: string | null;
+        businessLine: string | null;
         challanDays: number | null;
         dcLink: string | null;
-        specification: string | null;
         remarks: string | null;
-        businessLine: string | null;
-        srNo: number;
-        createdById: number | null;
-        updatedAt: Date;
-    }>;
-    remove(id: number): Promise<{
-        id: number;
-        createdAt: Date;
-        deletedAt: Date | null;
         year: string | null;
-        date: Date;
-        challan: string;
-        partyId: number;
-        productId: number;
-        inwardQty: number;
-        projectId: number | null;
-        poId: number | null;
-        kg: number | null;
-        challanDays: number | null;
-        dcLink: string | null;
-        specification: string | null;
-        remarks: string | null;
-        businessLine: string | null;
-        srNo: number;
-        createdById: number | null;
+        createdAt: Date;
         updatedAt: Date;
+        deletedAt: Date | null;
     }>;
     previewImport(file: Express.Multer.File): Promise<{
         preview: unknown[];

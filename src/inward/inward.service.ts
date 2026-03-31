@@ -1,6 +1,14 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as XLSX from 'xlsx';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { MastersService } from '../masters/masters.service';
 import { CreateInwardDto, UpdateInwardDto } from './dto/inward.dto';
 
 const INCLUDE_FULL = {
@@ -13,31 +21,98 @@ const INCLUDE_FULL = {
 
 @Injectable()
 export class InwardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private masters: MastersService,
+  ) {}
 
-  async findAll(query: { search?: string; page?: number; limit?: number }) {
-    const { search = '', page = 1, limit = 50 } = query;
+  async findAll(query: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+    partyId?: number;
+    projectId?: number;
+    productId?: number;
+    poId?: number;
+    year?: number;
+  }) {
+    const {
+      search = '',
+      page = 1,
+      limit = 50,
+      sortBy = 'date',
+      sortDir = 'desc',
+      partyId,
+      projectId,
+      productId,
+      poId,
+      year,
+    } = query;
     const skip = (page - 1) * limit;
+    const dir = sortDir === 'asc' ? ('asc' as const) : ('desc' as const);
 
-    const where = search
-      ? {
-          deletedAt: null,
-          OR: [
-            { party: { name: { contains: search, mode: 'insensitive' as const } } },
-            { product: { productCode: { contains: search, mode: 'insensitive' as const } } },
-            { product: { productName: { contains: search, mode: 'insensitive' as const } } },
-            { challan: { contains: search, mode: 'insensitive' as const } },
-            { project: { name: { contains: search, mode: 'insensitive' as const } } },
-          ],
-        }
-      : { deletedAt: null };
+    let orderBy: Prisma.InwardEntryOrderByWithRelationInput[];
+    switch (sortBy) {
+      case 'party':
+        orderBy = [{ party: { name: dir } }, { id: dir }];
+        break;
+      case 'project':
+        orderBy = [{ project: { name: dir } }, { id: dir }];
+        break;
+      case 'item':
+        orderBy = [{ product: { productName: dir } }, { id: dir }];
+        break;
+      case 'quantity':
+        orderBy = [{ inwardQty: dir }, { id: dir }];
+        break;
+      case 'date':
+      default:
+        orderBy = [{ date: dir }, { id: dir }];
+        break;
+    }
+
+    const clauses: Prisma.InwardEntryWhereInput[] = [{ deletedAt: null }];
+
+    if (partyId != null && Number.isFinite(partyId)) {
+      clauses.push({ partyId });
+    }
+    if (projectId != null && Number.isFinite(projectId)) {
+      clauses.push({ projectId });
+    }
+    if (productId != null && Number.isFinite(productId)) {
+      clauses.push({ productId });
+    }
+    if (poId != null && Number.isFinite(poId)) {
+      clauses.push({ poId });
+    }
+    if (year != null && Number.isFinite(year) && year >= 1900 && year <= 2100) {
+      const yStart = new Date(year, 0, 1);
+      const yEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+      clauses.push({ date: { gte: yStart, lte: yEnd } });
+    }
+
+    if (search) {
+      clauses.push({
+        OR: [
+          { party: { name: { contains: search, mode: 'insensitive' as const } } },
+          { product: { productCode: { contains: search, mode: 'insensitive' as const } } },
+          { product: { productName: { contains: search, mode: 'insensitive' as const } } },
+          { challan: { contains: search, mode: 'insensitive' as const } },
+          { project: { name: { contains: search, mode: 'insensitive' as const } } },
+        ],
+      });
+    }
+
+    const where: Prisma.InwardEntryWhereInput = { AND: clauses };
 
     const [data, total] = await Promise.all([
       this.prisma.inwardEntry.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: INCLUDE_FULL,
       }),
       this.prisma.inwardEntry.count({ where }),
@@ -88,11 +163,27 @@ export class InwardService {
     return entry;
   }
 
-  private validateDate(dateStr: string) {
+  private startOfDay(d: Date) {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+
+  private endOfDay(d: Date) {
+    const x = new Date(d);
+    x.setHours(23, 59, 59, 999);
+    return x;
+  }
+
+  /** Today end; entries may be dated up to 2 calendar days in the past; no future dates. */
+  private validateInwardDate(dateStr: string) {
     const d = new Date(dateStr);
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    if (d > today) throw new BadRequestException('Date cannot be in the future');
+    if (Number.isNaN(d.getTime())) throw new BadRequestException('Invalid date');
+    const todayEnd = this.endOfDay(new Date());
+    if (d > todayEnd) throw new BadRequestException('Date cannot be in the future');
+    const min = this.startOfDay(new Date());
+    min.setDate(min.getDate() - 2);
+    if (d < min) throw new BadRequestException('Inward date cannot be more than 2 days in the past');
   }
 
   private async checkDuplicate(challan: string, productId: number, excludeId?: number) {
@@ -103,7 +194,7 @@ export class InwardService {
   }
 
   async create(dto: CreateInwardDto, userId: number) {
-    this.validateDate(dto.date);
+    this.validateInwardDate(dto.date);
     await this.checkDuplicate(dto.challan, dto.productId);
 
     return this.prisma.inwardEntry.create({
@@ -126,32 +217,14 @@ export class InwardService {
     });
   }
 
-  async update(id: number, dto: UpdateInwardDto) {
-    await this.findOne(id);
-    this.validateDate(dto.date);
-    await this.checkDuplicate(dto.challan, dto.productId, id);
-
-    return this.prisma.inwardEntry.update({
-      where: { id },
-      data: {
-        date: new Date(dto.date),
-        challan: dto.challan,
-        partyId: dto.partyId,
-        productId: dto.productId,
-        inwardQty: dto.inwardQty,
-        projectId: dto.projectId,
-        poId: dto.poId,
-        kg: dto.kg,
-        specification: dto.specification,
-        remarks: dto.remarks,
-        year: dto.year,
-        businessLine: dto.businessLine,
-      },
-      include: INCLUDE_FULL,
-    });
+  async update(_id: number, _dto: UpdateInwardDto) {
+    throw new ForbiddenException('Records are immutable.');
   }
 
-  async remove(id: number) {
+  async remove(id: number, role: string) {
+    if (role !== 'ADMIN') {
+      throw new ForbiddenException('Only administrators can delete inward entries');
+    }
     await this.findOne(id);
     return this.prisma.inwardEntry.update({
       where: { id },
@@ -161,10 +234,12 @@ export class InwardService {
 
   /** Distinct challans from inward entries, filtered by party/project/PO, oldest first */
   async getChallans(filters: { partyId?: number; projectId?: number; poId?: number }) {
-    const where: Record<string, unknown> = { deletedAt: null };
+    const where: Prisma.InwardEntryWhereInput = { deletedAt: null };
     if (filters.partyId) where.partyId = filters.partyId;
-    if (filters.projectId) where.projectId = filters.projectId;
     if (filters.poId) where.poId = filters.poId;
+    if (filters.projectId != null) {
+      where.OR = [{ projectId: filters.projectId }, { projectId: null }];
+    }
 
     const rows = await this.prisma.inwardEntry.findMany({
       where,
@@ -187,10 +262,12 @@ export class InwardService {
   }
 
   async getPoItems(filters: { partyId?: number; projectId?: number; poId?: number }) {
-    const where: Record<string, unknown> = { deletedAt: null };
+    const where: Prisma.InwardEntryWhereInput = { deletedAt: null };
     if (filters.partyId) where.partyId = filters.partyId;
-    if (filters.projectId) where.projectId = filters.projectId;
     if (filters.poId) where.poId = filters.poId;
+    if (filters.projectId != null) {
+      where.OR = [{ projectId: filters.projectId }, { projectId: null }];
+    }
 
     const rows = await this.prisma.inwardEntry.findMany({
       where,
@@ -205,6 +282,8 @@ export class InwardService {
             productName: true,
             specification: true,
             businessLine: true,
+            defaultBundleQty: true,
+            defaultNoOfBundles: true,
           }
         }
       },
@@ -239,6 +318,8 @@ export class InwardService {
         productName: r.product.productName,
         specification: r.product.specification,
         businessLine: r.product.businessLine,
+        defaultBundleQty: r.product.defaultBundleQty,
+        defaultNoOfBundles: r.product.defaultNoOfBundles,
         inwardQty: r.inwardQty,
         outwardQty: dispatched,
         remainingQty: r.inwardQty - dispatched,
@@ -270,17 +351,53 @@ export class InwardService {
         party = await this.prisma.party.create({ data: { name: partyName } });
       }
 
+      const dateRaw = row['DATE'] ?? row['date'];
+      let dateIso: string;
+      if (dateRaw != null && String(dateRaw).trim() !== '') {
+        const parsed = new Date(String(dateRaw));
+        if (Number.isNaN(parsed.getTime())) {
+          skipped++;
+          continue;
+        }
+        dateIso = parsed.toISOString().slice(0, 10);
+      } else {
+        dateIso = new Date().toISOString().slice(0, 10);
+      }
+      try {
+        this.validateInwardDate(dateIso);
+      } catch {
+        skipped++;
+        continue;
+      }
+
+      const challanStr = String(row['Challan'] || row['challan'] || '').trim();
+      if (!challanStr) {
+        skipped++;
+        continue;
+      }
+
       // Find or create product
       let product = await this.prisma.product.findUnique({ where: { productCode } });
       if (!product) {
-        product = await this.prisma.product.create({
-          data: {
+        try {
+          product = await this.masters.createProduct({
             productCode,
             productName: productName || productCode,
             specification: row['Specification'] ? String(row['Specification']) : undefined,
             businessLine: row['Business Line'] ? String(row['Business Line']) : undefined,
-          },
-        });
+          });
+        } catch {
+          skipped++;
+          continue;
+        }
+      }
+
+      const dup = await this.prisma.inwardEntry.findFirst({
+        where: { challan: challanStr, productId: product.id, deletedAt: null },
+      });
+      if (dup) {
+        skipped++;
+        continue;
       }
 
       // Find project (optional)
@@ -301,8 +418,8 @@ export class InwardService {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (this.prisma.inwardEntry.create as any)({
         data: {
-          date: new Date(String(row['DATE'] || row['date'] || new Date())),
-          challan: String(row['Challan'] || row['challan'] || ''),
+          date: new Date(dateIso),
+          challan: challanStr,
           partyId: party.id,
           productId: product.id,
           inwardQty: Number(row['Inward Qty'] || row['inwardQty'] || 0),

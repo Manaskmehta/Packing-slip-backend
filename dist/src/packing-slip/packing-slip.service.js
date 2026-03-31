@@ -44,17 +44,57 @@ let PackingSlipService = class PackingSlipService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    startOfDay(d) {
+        const x = new Date(d);
+        x.setHours(0, 0, 0, 0);
+        return x;
+    }
+    endOfDay(d) {
+        const x = new Date(d);
+        x.setHours(23, 59, 59, 999);
+        return x;
+    }
+    validatePackingSlipDate(dateStr) {
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime()))
+            throw new common_1.BadRequestException('Invalid slip date');
+        const todayStart = this.startOfDay(new Date());
+        const todayEnd = this.endOfDay(new Date());
+        if (d < todayStart || d > todayEnd) {
+            throw new common_1.BadRequestException('Packing slip date must be today — backdating and future dates are not allowed');
+        }
+    }
     async generateSlipNo() {
         const count = await this.prisma.packingSlip.count();
         const year = new Date().getFullYear();
         return `PS-${year}-${String(count + 1).padStart(5, '0')}`;
     }
     async findAll(query) {
-        const { search = '', page = 1, limit = 50 } = query;
+        const { search = '', page = 1, limit = 50, sortBy = 'date', sortDir = 'desc', partyId, projectId, productId, isLocked, year, } = query;
         const skip = (page - 1) * limit;
-        const where = search
-            ? {
-                deletedAt: null,
+        const dir = sortDir === 'asc' ? 'asc' : 'desc';
+        const clauses = [{ deletedAt: null }];
+        if (partyId != null && Number.isFinite(partyId)) {
+            clauses.push({ partyId });
+        }
+        if (projectId != null && Number.isFinite(projectId)) {
+            clauses.push({ projectId });
+        }
+        if (productId != null && Number.isFinite(productId)) {
+            clauses.push({
+                items: { some: { deletedAt: null, productId } },
+            });
+        }
+        if (typeof isLocked === 'boolean') {
+            clauses.push({ isLocked });
+        }
+        if (year != null && Number.isFinite(year) && year >= 1900 && year <= 2100) {
+            const yStart = new Date(year, 0, 1);
+            const yEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+            clauses.push({ date: { gte: yStart, lte: yEnd } });
+        }
+        if (search) {
+            clauses.push({
                 OR: [
                     { slipNo: { contains: search, mode: 'insensitive' } },
                     { party: { name: { contains: search, mode: 'insensitive' } } },
@@ -71,27 +111,86 @@ let PackingSlipService = class PackingSlipService {
                         },
                     },
                 ],
-            }
-            : { deletedAt: null };
-        const [data, total] = await Promise.all([
-            this.prisma.packingSlip.findMany({
+            });
+        }
+        const where = { AND: clauses };
+        const listInclude = {
+            createdBy: { select: { name: true } },
+            party: { select: { id: true, name: true, code: true } },
+            project: { select: { id: true, name: true, code: true } },
+            poRef: { select: { id: true, poNumber: true } },
+            items: {
+                where: { deletedAt: null },
+                select: ITEM_SELECT_FIELDS,
+            },
+        };
+        const total = await this.prisma.packingSlip.count({ where });
+        const SORT_MEM_LIMIT = 8000;
+        const useMemSort = (sortBy === 'quantity' || sortBy === 'item') && total > 0 && total <= SORT_MEM_LIMIT;
+        if (useMemSort) {
+            const lite = (await this.prisma.packingSlip.findMany({
                 where,
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    createdBy: { select: { name: true } },
-                    party: { select: { id: true, name: true, code: true } },
-                    project: { select: { id: true, name: true, code: true } },
-                    poRef: { select: { id: true, poNumber: true } },
+                select: {
+                    id: true,
                     items: {
                         where: { deletedAt: null },
-                        select: ITEM_SELECT_FIELDS,
+                        select: {
+                            qty: true,
+                            product: { select: { productName: true, productCode: true } },
+                        },
                     },
                 },
-            }),
-            this.prisma.packingSlip.count({ where }),
-        ]);
+            }));
+            const sorted = [...lite].sort((a, b) => {
+                if (sortBy === 'quantity') {
+                    const qa = a.items.reduce((s, i) => s + i.qty, 0);
+                    const qb = b.items.reduce((s, i) => s + i.qty, 0);
+                    return dir === 'asc' ? qa - qb : qb - qa;
+                }
+                const minLabel = (items) => items.length === 0
+                    ? ''
+                    : items
+                        .map((i) => i.product.productName || i.product.productCode)
+                        .sort((x, y) => x.localeCompare(y, undefined, { sensitivity: 'base' }))[0];
+                const c = minLabel(a.items).localeCompare(minLabel(b.items), undefined, { sensitivity: 'base' });
+                return dir === 'asc' ? c : -c;
+            });
+            const pageIds = sorted.slice(skip, skip + limit).map((x) => x.id);
+            if (pageIds.length === 0) {
+                return { data: [], total, page, limit };
+            }
+            const rows = await this.prisma.packingSlip.findMany({
+                where: { id: { in: pageIds } },
+                include: listInclude,
+            });
+            const orderMap = new Map(pageIds.map((id, i) => [id, i]));
+            rows.sort((a, b) => (orderMap.get(a.id) - orderMap.get(b.id)));
+            return { data: rows, total, page, limit };
+        }
+        let orderBy;
+        switch (sortBy) {
+            case 'party':
+                orderBy = [{ party: { name: dir } }, { id: dir }];
+                break;
+            case 'project':
+                orderBy = [{ project: { name: dir } }, { id: dir }];
+                break;
+            case 'quantity':
+            case 'item':
+                orderBy = [{ date: 'desc' }, { id: 'desc' }];
+                break;
+            case 'date':
+            default:
+                orderBy = [{ date: dir }, { id: dir }];
+                break;
+        }
+        const data = await this.prisma.packingSlip.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy,
+            include: listInclude,
+        });
         return { data, total, page, limit };
     }
     async findOne(id) {
@@ -142,6 +241,7 @@ let PackingSlipService = class PackingSlipService {
         }
     }
     async create(dto, userId) {
+        this.validatePackingSlipDate(dto.date);
         await this.validateStock(dto.items);
         const slipNo = await this.generateSlipNo();
         return this.prisma.packingSlip.create({
@@ -209,64 +309,8 @@ let PackingSlipService = class PackingSlipService {
             },
         });
     }
-    async update(id, dto) {
-        const slip = await this.findOne(id);
-        if (slip.isLocked)
-            throw new common_1.ForbiddenException('Packing slip is locked and cannot be edited');
-        await this.validateStock(dto.items, id);
-        await this.prisma.packingSlipItem.updateMany({
-            where: { packingSlipId: id, deletedAt: null },
-            data: { deletedAt: new Date() },
-        });
-        await this.prisma.packingSlipProductSummary.deleteMany({
-            where: { packingSlipId: id },
-        });
-        return this.prisma.packingSlip.update({
-            where: { id },
-            data: {
-                date: new Date(dto.date),
-                partyId: dto.partyId,
-                projectId: dto.projectId,
-                poId: dto.poId,
-                remarks: dto.remarks,
-                vehicleNo: dto.vehicleNo ?? null,
-                slipWeight: dto.slipWeight,
-                finalBillableWeight: dto.finalBillableWeight,
-                packagingWeightPerPc: dto.packagingWeightPerPc ?? null,
-                packagingQty: dto.packagingQty ?? null,
-                items: {
-                    create: dto.items.map((item) => ({
-                        productId: item.productId,
-                        dcLink: item.dcLink,
-                        specification: item.specification,
-                        businessLine: item.businessLine,
-                        qty: item.qty,
-                        kg: item.kg,
-                        bundleQty: item.bundleQty,
-                        noOfBundles: item.noOfBundles,
-                        packagingWeightPerPc: item.packagingWeightPerPc ?? null,
-                        packagingQty: item.packagingQty ?? null,
-                        slipWeight: item.slipWeight ?? null,
-                        finalBillableWeight: item.finalBillableWeight ?? null,
-                    })),
-                },
-                productSummaries: {
-                    create: dto.productSummaries?.map((s) => ({
-                        productId: s.productId,
-                        slipWeight: s.slipWeight,
-                        packagingWeightPerPc: s.packagingWeightPerPc,
-                        packagingQty: s.packagingQty,
-                        finalBillableWeight: s.finalBillableWeight,
-                    })) ?? [],
-                },
-            },
-            include: {
-                party: { select: { id: true, name: true } },
-                project: { select: { id: true, name: true } },
-                items: { where: { deletedAt: null }, include: ITEM_INCLUDE },
-                productSummaries: true,
-            },
-        });
+    async update(_id, _dto) {
+        throw new common_1.ForbiddenException('Records are immutable.');
     }
     async remove(id) {
         const slip = await this.findOne(id);

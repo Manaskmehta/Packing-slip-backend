@@ -80,8 +80,12 @@ let MastersController = class MastersController {
     removeProject(id) {
         return this.masters.removeProject(id);
     }
-    findAllProducts(search, activeOnly, page, limit) {
-        return this.masters.findAllProducts(search, activeOnly === 'true', page ? Number(page) : 1, limit ? Number(limit) : 50);
+    findAllProducts(search, activeOnly, page, limit, allowedIds) {
+        const ids = allowedIds
+            ?.split(',')
+            .map((s) => Number(s.trim()))
+            .filter((n) => Number.isFinite(n) && n > 0);
+        return this.masters.findAllProducts(search, activeOnly === 'true', page ? Number(page) : 1, limit ? Number(limit) : 50, ids?.length ? ids : undefined);
     }
     downloadProductTemplate(res) {
         const buffer = this.masters.generateProductTemplate();
@@ -267,8 +271,9 @@ __decorate([
     __param(1, (0, common_1.Query)('activeOnly')),
     __param(2, (0, common_1.Query)('page')),
     __param(3, (0, common_1.Query)('limit')),
+    __param(4, (0, common_1.Query)('allowedIds')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], MastersController.prototype, "findAllProducts", null);
 __decorate([

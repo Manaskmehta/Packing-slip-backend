@@ -9,9 +9,6 @@ export declare class StockService {
             totalInward: number;
             totalOutward: number;
             available: number;
-            totalKgInward: number;
-            totalKgOutward: number;
-            availableKg: number;
         }[];
         summary: {
             totalInwardPcs: number;

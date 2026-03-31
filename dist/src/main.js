@@ -9,7 +9,7 @@ async function bootstrap() {
     app.useGlobalPipes(new common_1.ValidationPipe({ transform: true, whitelist: true }));
     app.useGlobalFilters(new prisma_exception_filter_1.PrismaExceptionFilter());
     app.enableCors({
-        origin: 'https://packing-frontend.vercel.app',
+        origin: 'http://localhost:3000',
         credentials: true,
     });
     app.setGlobalPrefix('api');

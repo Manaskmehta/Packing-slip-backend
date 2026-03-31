@@ -69,6 +69,9 @@ model Product {
   businessLine     String?
   hsnCode          String?
   uom              String?
+  // Default bundle fields (optional); pre-fill new packing slip lines from item master
+  defaultBundleQty   Int?
+  defaultNoOfBundles Int?
   isActive         Boolean           @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt

@@ -26,11 +26,38 @@ export class InwardController {
   constructor(private inward: InwardService) {}
 
   @Get()
-  findAll(@Query() query: { search?: string; page?: string; limit?: string }) {
+  findAll(
+    @Query()
+    query: {
+      search?: string;
+      page?: string;
+      limit?: string;
+      sortBy?: string;
+      sortDir?: string;
+      partyId?: string;
+      projectId?: string;
+      productId?: string;
+      poId?: string;
+      year?: string;
+    },
+  ) {
+    const dir = query.sortDir === 'asc' || query.sortDir === 'desc' ? query.sortDir : undefined;
+    const pid = query.partyId ? Number(query.partyId) : undefined;
+    const prid = query.projectId ? Number(query.projectId) : undefined;
+    const prodId = query.productId ? Number(query.productId) : undefined;
+    const po = query.poId ? Number(query.poId) : undefined;
+    const y = query.year ? Number(query.year) : undefined;
     return this.inward.findAll({
       search: query.search,
       page: query.page ? Number(query.page) : 1,
       limit: query.limit ? Number(query.limit) : 50,
+      sortBy: query.sortBy,
+      sortDir: dir,
+      partyId: pid != null && Number.isFinite(pid) ? pid : undefined,
+      projectId: prid != null && Number.isFinite(prid) ? prid : undefined,
+      productId: prodId != null && Number.isFinite(prodId) ? prodId : undefined,
+      poId: po != null && Number.isFinite(po) ? po : undefined,
+      year: y != null && Number.isFinite(y) ? y : undefined,
     });
   }
 
@@ -76,8 +103,8 @@ export class InwardController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.inward.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req: { user: { role: string } }) {
+    return this.inward.remove(id, req.user.role);
   }
 
   @Post('import/preview')

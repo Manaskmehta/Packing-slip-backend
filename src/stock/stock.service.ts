@@ -10,21 +10,18 @@ export class StockService {
     const inwardRaw = await this.prisma.inwardEntry.groupBy({
       by: ['productId'],
       where: { deletedAt: null },
-      _sum: { inwardQty: true, kg: true },
+      _sum: { inwardQty: true },
     });
 
     // Outward: grouped by productId from PackingSlipItem — exclude soft-deleted items
     const outwardRaw = await this.prisma.packingSlipItem.groupBy({
       by: ['productId'],
       where: { deletedAt: null },
-      _sum: { qty: true, kg: true },
+      _sum: { qty: true },
     });
 
     const outwardMap = new Map(
-      outwardRaw.map((o) => [
-        o.productId,
-        { qty: o._sum.qty || 0, kg: o._sum.kg || 0 },
-      ]),
+      outwardRaw.map((o) => [o.productId, o._sum.qty || 0]),
     );
 
     // Fetch product master data for all inward product IDs
@@ -37,16 +34,14 @@ export class StockService {
 
     let stock = inwardRaw.map((i) => {
       const prod = i.productId !== null ? productMap.get(i.productId) : undefined;
-      const out = i.productId !== null ? (outwardMap.get(i.productId) || { qty: 0, kg: 0 }) : { qty: 0, kg: 0 };
+      const outQty = i.productId !== null ? (outwardMap.get(i.productId) ?? 0) : 0;
+      const inQty = i._sum?.inwardQty || 0;
       return {
         productCode: prod?.productCode || '',
         productName: prod?.productName || '',
-        totalInward: i._sum?.inwardQty || 0,
-        totalOutward: out.qty,
-        available: (i._sum?.inwardQty || 0) - out.qty,
-        totalKgInward: i._sum?.kg || 0,
-        totalKgOutward: out.kg,
-        availableKg: (i._sum?.kg || 0) - out.kg,
+        totalInward: inQty,
+        totalOutward: outQty,
+        available: inQty - outQty,
       };
     });
 

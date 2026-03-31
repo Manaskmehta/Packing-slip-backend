@@ -140,8 +140,19 @@ export class MastersController {
     @Query('activeOnly') activeOnly?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('allowedIds') allowedIds?: string,
   ) {
-    return this.masters.findAllProducts(search, activeOnly === 'true', page ? Number(page) : 1, limit ? Number(limit) : 50);
+    const ids = allowedIds
+      ?.split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    return this.masters.findAllProducts(
+      search,
+      activeOnly === 'true',
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 50,
+      ids?.length ? ids : undefined,
+    );
   }
 
   @Get('products/template/download')

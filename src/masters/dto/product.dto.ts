@@ -1,4 +1,5 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateProductDto {
   @IsString()
@@ -26,6 +27,16 @@ export class CreateProductDto {
   @IsString()
   @IsOptional()
   uom?: string;
+
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  defaultBundleQty?: number;
+
+  @IsInt()
+  @IsOptional()
+  @Type(() => Number)
+  defaultNoOfBundles?: number;
 
   @IsBoolean()
   @IsOptional()

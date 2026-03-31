@@ -24,10 +24,23 @@ let InwardController = class InwardController {
         this.inward = inward;
     }
     findAll(query) {
+        const dir = query.sortDir === 'asc' || query.sortDir === 'desc' ? query.sortDir : undefined;
+        const pid = query.partyId ? Number(query.partyId) : undefined;
+        const prid = query.projectId ? Number(query.projectId) : undefined;
+        const prodId = query.productId ? Number(query.productId) : undefined;
+        const po = query.poId ? Number(query.poId) : undefined;
+        const y = query.year ? Number(query.year) : undefined;
         return this.inward.findAll({
             search: query.search,
             page: query.page ? Number(query.page) : 1,
             limit: query.limit ? Number(query.limit) : 50,
+            sortBy: query.sortBy,
+            sortDir: dir,
+            partyId: pid != null && Number.isFinite(pid) ? pid : undefined,
+            projectId: prid != null && Number.isFinite(prid) ? prid : undefined,
+            productId: prodId != null && Number.isFinite(prodId) ? prodId : undefined,
+            poId: po != null && Number.isFinite(po) ? po : undefined,
+            year: y != null && Number.isFinite(y) ? y : undefined,
         });
     }
     getChallans(partyId, projectId, poId) {
@@ -53,8 +66,8 @@ let InwardController = class InwardController {
     update(id, dto) {
         return this.inward.update(id, dto);
     }
-    remove(id) {
-        return this.inward.remove(id);
+    remove(id, req) {
+        return this.inward.remove(id, req.user.role);
     }
     previewImport(file) {
         return this.inward.previewExcel(file.buffer);
@@ -121,8 +134,9 @@ __decorate([
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id', common_1.ParseIntPipe)),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Number]),
+    __metadata("design:paramtypes", [Number, Object]),
     __metadata("design:returntype", void 0)
 ], InwardController.prototype, "remove", null);
 __decorate([
